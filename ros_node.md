@@ -1581,22 +1581,144 @@ rosbag play hello.bag
 ###### 录制
 
 ```cpp
+#include "ros/ros.h"
+#include "rosbag/bag.h"
+#include "turtlesim/Pose.h"
 
+void callbackfn(const turtlesim::Pose::ConstPtr& pose)
+{
+    rosbag::Bag bag;
+    bag.open("./turtle.bag", rosbag::BagMode::Write);
+    bag.write("/turtle1/pose", ros::Time::now(), pose);
+    bag.close();
+    return;
+}
+
+int main(int argc, char *argv[])
+{
+    ros::init(argc, argv, "record");
+    ros::NodeHandle nh;
+    ros::Subscriber sub = nh.subscribe<turtlesim::Pose>("turtle1/pose", 10, callbackfn);
+    ros::spin();
+    return 0;
+}
 ```
 
 ###### 回放
 
 ```cpp
+#include "ros/ros.h"
+#include "rosbag/bag.h"
+#include "turtlesim/Pose.h"
+#include "rosbag/view.h"
 
+int main(int argc, char *argv[])
+{
+    ros::init(argc, argv, "record");
+    ros::NodeHandle nh;
+    rosbag::Bag bag;
+    bag.open("./turtle.bag", rosbag::BagMode::Read);
+    for(rosbag::MessageInstance const m : rosbag::View(bag))
+    {
+        ROS_INFO("topic: %s, time: %.2f, x: %.2f, y: %.2f, theta: %.2f",
+                m.getTopic().c_str(),
+                m.getTime().toSec(),
+                m.instantiate<turtlesim::Pose>()->x,
+                m.instantiate<turtlesim::Pose>()->y,
+                m.instantiate<turtlesim::Pose>()->theta);
+    }
+    bag.close();
+    return 0;
+}
 ```
 
+#### 机器人系统仿真概述
 
+##### 概念
 
+通过计算机对实体机器人系统进行模拟的技术，在`ROS`中主要有以下三个内容：
 
+1. 机器人建模（`URDF`）
+2. 创建仿真环境（`Gazebo`）
+3. 感知环境（`Rviz`）
 
+##### 优缺点
 
+优点有：
 
+1. 低成本
+2. 高效
+3. 高安全性
 
+缺点有：
+
+1. 不能完全精确模拟真实世界的物理情况
+2. 仿真器使用的是绝对理想情况
+
+##### 相关组建
+
+1. `URDF`
+
+   统一/标准化机器人描述格式。可以以一种`XML`的方式来描述机器人的部分结构，如底盘，摄像头等以及不同关节的自由度。该文件可以被`C++`内置的解释器转换成可视化的机器人模型。
+
+2. `Gazebo`
+
+   是一款3D动态模拟器，用于显示机器人模型并创建仿真环境，能够在复杂的室内和室外环境中准确有效地模拟机器人。提供高保真度的物理模拟，有一整套的传感器模型，对用户和程序有非常好的交互方式。
+
+3. `Rviz`
+
+   `ROS`的三维可视化工具。主要目的是以三维方式显示`ROS`消息，可以将数据进行可视化表达。
+
+#### `URDF`集成`Rviz`
+
+##### 新建功能包
+
+需要导入的依赖有`urdf`和`xacro`；前者是创建机器人模型的功能包，后者是对前者的一个优化功能包，两者配合使用。
+
+需要在当前功能包下新建几个目录：
+
+1. `urdf`: 存储`urdf`文件
+2. `meshes`: 机器人模型渲染文件
+3. `config`: `Rviz`软件配置文件
+4. `launch`: 启动文件
+
+配置好的文件目录如下所示：
+
+```cpp
+/src
+	/urdf_and_rviz
+		/config
+		/launch
+		/meshes
+		/urdf
+			/urdf
+			/xacro
+```
+
+##### 编写模型文件
+
+```xml
+<robot name="myrobot">
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <box size="0.5 0.2 0.1" />
+            </geometry>
+        </visual>
+    </link>
+</robot>
+```
+
+##### 编写启动文件
+
+```xml
+<launch>
+    <!-- 1. 创建参数服务器，将 urdf 文件读入-->
+    <param name="robot_description" textfile="$(find urdf_and_rviz)/urdf/urdf/first_robot.urdf"/>
+    <!-- 2. 启动 rviz 软件-->
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find urdf_and_rviz)/config/first_robot.rviz"/>
+</launch>
+```
 
 
 
