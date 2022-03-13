@@ -1720,5 +1720,228 @@ int main(int argc, char *argv[])
 </launch>
 ```
 
+#### `URDF`语法
 
+##### `robot`标签
+
+`robot`标签是机器人模型文件的根标签，所有的`link`，`joint`或其他的标签都需要包含在`robot`标签中。
+
+`robot`标签有一个属性 `name`，该属性定义了机器人模型的名称。
+
+##### `link`标签
+
+`link`标签用于描述机器人部件，也即刚体部分的外观和物理属性。
+
+如机器人的底座，轮子，激光雷达等等部件都对应于一个`link`，通过`link`标签的子标签，可以设定该部件的形状，尺寸，颜色，惯性矩阵和碰撞参数等属性。
+
+`link`标签包含一个属性 `name`，代表该部件的名称。
+
+`link`标签含有一些子标签如下：
+
++ `visual`标签
+
+  该标签设定部件的外观属性，其下有`geometry`，`origin`和`material`子标签
+
+  - `geometry`标签
+
+    设置形状，有长方体（`box`），圆柱体（`cylinder`）球体（`sphere`）和自定义（`mesh`）
+
+  - `origin`标签
+
+    设置偏移量（`xyz`）和旋转角（`rpy`）
+
+  - `material`标签
+
+    可以通过属性 `name` 设置名称，通过 子标签 `color` 设置显示颜色（`rgba`）
+
++ `collision`标签
+
++ `Inertial`标签
+
+##### `joint`标签
+
+`joint`标签用于描述机器人不同`link`之间的运动学和动力学属性，也可以指定`link`运动的安全极限。在父子`link`之间有不同的运动形式，可以是旋转，滑动，固定等等；同时还存在着不同的坐标变换关系，这些都通过`joint`标签下的子标签来实现。
+
+`joint`标签有两个属性，一个是 `name`，用来指定名称；另一个是 `type`，用来指定运动的形式，分别有以下几种不同的运动形式：
+
++ `continous`: 旋转，绕单个轴无限制旋转
++ `revolute`: 旋转，绕单轴旋转，有范围限制
++ `prismatic`: 滑动，沿某一轴线移动，有滑动距离限制
++ `planer`:平面运动，允许在平面正交方向上平移或旋转
++ `floating`: 浮动，允许平移和旋转运动
++ `fixed`: 固定，不允许运动
+
+`joint`标签的子标签有以下：
+
++ `parent`: 父级`link`的名称
++ `child`：子级`link`的名称
++ `origin`：平移和旋转的偏移
++ `axis`: 旋转轴（非必要）
+
+##### `URDF`实操
+
+创建一个四轮圆柱状机器人模型，机器人参数如下,底盘为圆柱状，半径 10cm，高 8cm，四轮由两个驱动轮和两个万向支撑轮组成，两个驱动轮半径为  3.25cm,轮胎宽度1.5cm，两个万向轮为球状，半径 0.75cm，底盘离地间距为 1.5cm(与万向轮直径一致)
+
+相关文件如下
+
+```xml
+<!-- launch file -->
+<launch>
+    <param name="robot_description" textfile="$(find urdf_and_rviz)/urdf/urdf/robot_train.urdf" />
+    <node pkg="rviz" type="rviz" name="rviz" />
+    
+    <!-- add joint_state_publisher node -->
+    <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher" />
+    <!-- add robot_state_publisher node -->
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" />
+    <!-- add joint_state_publisher_gui node (not neccesary) -->
+    <node pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" name="joint_state_publisher_gui" /> 
+</launch>
+```
+
+---
+
+```xml
+<!-- urdf file -->
+<robot name="robot_train">
+
+    <link name="base_footprint">
+        <visual>
+            <geometry>
+                <sphere radius="0.001" />
+            </geometry>
+
+        </visual>
+    </link>
+
+    <link name="base_link">
+        <visual>
+            <geometry>
+                <!-- <box size="0.3 0.1 0.1" /> -->
+                <cylinder radius="0.1" length="0.08" />
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="0 0 0" />
+
+            <material name="iron">
+                <color rgba="0 0 0 0.5" />
+            </material>
+        </visual>
+    </link>
+
+    <link name="left_wheel">
+        <visual>
+            <geometry>
+                <cylinder radius="0.0325" length="0.015" />
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="1.57 0 0" />
+
+            <material name="rubber">
+                <color rgba="0.5 0.6 0.8 0.8" />
+            </material>
+        </visual>
+    </link>
+
+    <link name="right_wheel">
+        <visual>
+            <geometry>
+                <cylinder radius="0.0325" length="0.015" />
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="-1.57 0 0" />
+
+            <material name="rubber">
+                <color rgba="0.5 0.6 0.8 0.8" />
+            </material>
+        </visual>
+    </link>
+
+    <link name="head_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="0.0075" />
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="0 0 0" />
+
+            <material name="rubber">
+                <color rgba="0.5 0.6 0.8 0.8" />
+            </material>
+        </visual>
+    </link>
+
+    <link name="back_wheel">
+        <visual>
+            <geometry>
+                <sphere radius="0.0075" />
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="0 0 0" />
+
+            <material name="rubber">
+                <color rgba="0.5 0.6 0.8 0.8" />
+            </material>
+        </visual>
+    </link> -->
+
+    <joint name="base2footprint" type="fixed">
+        <parent link="base_footprint" />
+        <child link="base_link" />
+        <origin xyz="0 0 0.055" rpy="0 0 0" />
+
+    </joint>
+
+    <joint name="leftwheel2base" type="continuous">
+        <parent link="base_link" />
+        <child link="left_wheel" />
+        <origin xyz="0 0.0975 -0.0225" rpy="0 0 0" />
+        <axis xyz="0 1 0" />
+
+    </joint>
+
+    <joint name="rightwheel2base" type="continuous">
+        <parent link="base_link" />
+        <child link="right_wheel" />
+        <origin xyz="0 -0.0975 -0.0225" rpy="0 0 0" />
+        <axis xyz="0 1 0" />
+        
+    </joint>
+
+    <joint name="headwheel2base" type="continuous">
+        <parent link="base_link" />
+        <child link="head_wheel" />
+        <origin xyz="0.0925 0 -0.0475" rpy="0 0 0" />
+        <axis xyz="1 1 1" />
+        
+    </joint>
+
+    <joint name="backwheel2base" type="continuous">
+        <parent link="base_link" />
+        <child link="back_wheel" />
+        <origin xyz="-0.0925 0 -0.0475" rpy="0 0 0" />
+        <axis xyz="1 1 1" />
+        
+    </joint>
+</robot>
+```
+
+##### `URDF`工具
+
+在 ROS 中，提供了一些工具来方便 URDF 文件的编写，比如:
+
+- `check_urdf`命令可以检查复杂的 urdf 文件是否存在语法问题
+- `urdf_to_graphiz`命令可以查看 urdf 模型结构，显示不同 link 的层级关系
+
+要在使用工具之前，首先需要安装，安装命令:`sudo apt install liburdfdom-tools`
+
+使用方式：
+
+```bash
+// check_urdf
+$ check_urdf xxx.urdf
+
+// urdf_to_graphiz
+$ urdf_to_graphiz xxx.urdf
+```
 
