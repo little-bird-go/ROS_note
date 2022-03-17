@@ -1945,3 +1945,323 @@ $ check_urdf xxx.urdf
 $ urdf_to_graphiz xxx.urdf
 ```
 
+#### xacro 使用
+
+`xacro`是`XML Macro`缩写。是可编程的`XML`。利用`xacro`可以编写更加安全/精简/易读性更强的机器人模型文件爱你，且可以提高编写的效率。
+
+##### 语法
+
+###### 命名空间声明
+
+使用时在根标签`robot`中必须包含有命名空间的声明
+
+```xml
+<robot name="xxx" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+	<!-- whatever -->
+</robot>
+```
+
+###### 属性
+
+```xml
+<!-- 定义 -->
+<xacro:property name="xxx" value="yyy" />
+<!-- 调用 -->
+${name}
+<!-- 运算 -->
+${expression}
+```
+
+###### 条件判断
+
+```xml
+<xacro:if value="<expression>">
+  <... some xml code here ...>
+</xacro:if>
+<xacro:unless value="<expression>">
+  <... some xml code here ...>
+</xacro:unless>
+```
+
+###### 宏
+
+```xml
+<!-- define -->
+<xacro:macro name="<name>" params="<params>">
+    <... some xml code here ...>
+</xacro:macro>
+<!-- use -->
+<xacro:<name> <params>="" />
+```
+
+###### 包含文件
+
+```xml
+<xacro:include filename="xxx.xacro" />
+```
+
+##### 实操
+
+利用`xacro`生成一个机器人模型，机器人模型包含底盘，相机和雷达三部分。
+
+###### `launch`集成
+
+```xml
+<launch>
+    <param name="robot_description" command="$(find xacro)/xacro $(find pkg_xacro)/urdf/xacro/robot.xacro" />
+    <node pkg="rviz" type="rviz" name="rviz" args="-d $(find pkg_xacro)/config/config.rviz"/>
+
+    <node pkg="robot_state_publisher" type="robot_state_publisher" name="robot_state_publisher" output="screen" />
+    <node pkg="joint_state_publisher" type="joint_state_publisher" name="joint_state_publisher" output="screen" />
+    <node pkg="joint_state_publisher_gui" type="joint_state_publisher_gui" name="joint_state_publisher_gui" output="screen" />
+
+</launch>
+```
+
+###### 上层包含文件
+
+```xml
+<robot name="robot_xacro" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    <!-- include all the parts of the robot -->
+
+    <!-- 1. the robot base -->
+    <xacro:include filename="robot_base.xacro" />
+    <!-- 2. the camera -->
+    <xacro:include filename="camera.xacro" />
+    <!-- 3. the radar -->
+    <xacro:include filename="radar.xacro" />
+
+</robot>
+```
+
+###### 底盘实现
+
+```xml
+<robot name="robot_base" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+    <!-- xacro property definition -->
+    
+    <xacro:property name="base_radius" value="0.1" />
+    <xacro:property name="base_length" value="0.08" />
+    <xacro:property name="drive_wheel_radius" value="0.0325" />
+    <xacro:property name="drive_wheel_length" value="0.015" />
+    <xacro:property name="negative_wheel_radius" value="0.0075" />
+    
+    <!-- xacro macro definition -->
+
+    <xacro:macro name="add_drive_wheel" params="name type parent_link" >
+        <!-- link -->
+        <link name="${name}_drive_wheel">
+            <visual>
+                <geometry>
+                    <cylinder radius="${drive_wheel_radius}" length="${drive_wheel_length}" />    
+                </geometry>
+
+                <origin xyz="0 0 0" rpy="${pi/2} 0 0" />
+
+                <material name="black">
+                    <color rgba="0 0 0 0.5" />
+                </material>
+            </visual>
+        </link>
+
+        <!-- joint -->
+        <joint name="${name}_drive_wheel2base" type="continuous">
+            <parent link="${parent_link}" />
+            <child link="${name}_drive_wheel" />
+            
+            <xacro:if value="${type == 'left'}">
+                <origin xyz="0 ${base_radius + drive_wheel_length / 2} ${-base_length/2 - 2*negative_wheel_radius + drive_wheel_radius}" rpy = "0 0 0" />
+            </xacro:if>
+
+            <xacro:if value="${type == 'right'}">
+                <origin xyz="0 -${base_radius + drive_wheel_length / 2} ${-base_length/2 - 2*negative_wheel_radius + drive_wheel_radius}" rpy = "0 0 0" />
+            </xacro:if>
+
+            <axis xyz="0 1 0" />
+        </joint> 
+    </xacro:macro>
+
+
+    <xacro:macro name="add_negative_wheel" params="name type parent_link" >
+        <!-- link -->
+        <link name="${name}_negative_wheel" >
+            <visual>
+                <geometry>
+                    <sphere radius="${negative_wheel_radius}" />
+                </geometry>
+                <origin xyz="0 0 0" rpy="0 0 0" />
+                <material name="black">
+                    <color rgba="0 0 0 0.5" />
+                </material>
+            </visual>
+        </link>
+
+        <!-- joint -->
+        <joint name="${name}_negative_wheel2base" type="continuous">
+            <parent link="${parent_link}" />
+            <child link="${name}_negative_wheel" />
+            
+            <xacro:if value="${type == 'front'}">
+                <origin xyz="${base_radius - negative_wheel_radius/2} 0 ${-base_length/2 - negative_wheel_radius}" rpy = "0 0 0" />
+            </xacro:if>
+
+            <xacro:if value="${type == 'back'}">
+                <origin xyz="-${base_radius - negative_wheel_radius / 2} 0 ${-base_length/2 - negative_wheel_radius}" rpy = "0 0 0" />
+            </xacro:if>
+
+            <axis xyz="1 1 1" />
+        </joint> 
+
+    </xacro:macro>
+    <!-- 1. footprint -->
+    <!-- do not need xacro -->
+    <link name="footprint">
+        <visual>
+            <geometry>
+                <sphere radius="0.001" />
+            </geometry>
+        </visual>
+    </link>
+
+    <!-- 2. base -->
+    <link name="base" >
+        <visual>
+            <geometry>
+                <cylinder radius="${base_radius}" length="${base_length}"/>
+            </geometry>
+            <origin xyz="0 0 0" rpy="0 0 0" />
+            <material name="grey">
+                <color rgba="0.2 0.2 0.2 0.5" />
+            </material>
+        </visual>
+    </link>
+
+    <joint name="base2footprint" type="fixed">
+        <parent link="footprint" />
+        <child link="base" />
+        <origin xyz="0 0 ${base_length/2 + 2 * negative_wheel_radius}" rpy= "0 0 0" />
+    </joint>
+
+    <!-- 3. drive wheel -->
+    <xacro:add_drive_wheel name="left" type="left" parent_link="base" />
+    <xacro:add_drive_wheel name="right" type="right" parent_link="base" />
+
+    <!-- 4. negative wheel -->
+    <xacro:add_negative_wheel name="front" type="front" parent_link="base" />
+    <xacro:add_negative_wheel name="back" type="back" parent_link="base" />
+
+</robot>
+```
+
+###### 相机实现
+
+```xml
+<robot name="camera" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+    <!-- xacro property -->
+
+    <xacro:property name="camera_width" value="0.01" />
+    <xacro:property name="camera_length" value="0.025" />  
+    <xacro:property name="camera_height" value="0.025" />  
+    <xacro:property name="camera_x" value="${base_radius - 2*camera_width}" />  
+    <xacro:property name="camera_y" value="0" />  
+    <xacro:property name="camera_z" value="${base_length/2 + camera_height/2}" />  
+
+    <!-- camera link -->
+    <link name="camera">
+        <visual>
+            <geometry>
+                <box size="${camera_width} ${camera_length} ${camera_height}" />
+            </geometry>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <material name="blue" >
+                <color rgba="0 0 1 0.5" />
+            </material>    
+        </visual>
+    </link>
+
+    <!-- camera joint -->
+    <joint name="camera2base" type="continuous">
+        <parent link="base" />
+        <child link="camera" />
+        <origin xyz="${camera_x} ${camera_y} ${camera_z}" rpy="0 0 0" />
+        <axis xyz="0 0 1" />
+    </joint> 
+
+</robot>
+```
+
+###### 雷达实现
+
+```xml
+<robot name="radar" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+    <!-- xacro property -->
+
+    <xacro:property name="radar_support_radius" value="0.01" />
+    <xacro:property name="radar_support_length" value="0.15" />
+    <xacro:property name="radar_support_x" value="0" />
+    <xacro:property name="radar_support_y" value="0" />
+    <xacro:property name="radar_support_z" value="${base_length/2 + radar_support_length/2}"  />
+
+    <xacro:property name="radar_radius" value="0.03" />
+    <xacro:property name="radar_length" value="0.05" />
+    <xacro:property name="radar_x" value="0" />
+    <xacro:property name="radar_y" value="0" />
+    <xacro:property name="radar_z" value="${radar_support_length/2 + radar_length/2}" />
+    
+    <!-- radar support link -->
+    <link name="radar_support">
+        <visual>
+            <geometry>
+                <cylinder radius="${radar_support_radius}" length="${radar_support_length}"/>
+            </geometry>
+
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+
+            <material name="yellow">
+                <color rgba="0 1 1 0.5" />
+            </material>
+
+        </visual>
+    </link>
+    <!-- radar support joint -->
+    <joint name="radar_support" type="fixed">
+        <parent link="base" />
+        <child link="radar_support" />
+        <origin xyz="${radar_support_x} ${radar_support_y} ${radar_support_z}" rpy="0 0 0"/>
+    </joint>
+
+
+    <!-- radar link -->
+    <link name="radar">
+        <visual>
+            <geometry>
+                <cylinder radius="${radar_radius}" length="${radar_length}" />
+            </geometry>
+            <origin xyz="0.0 0.0 0.0" rpy="0.0 0.0 0.0" />
+            <material name="green" >
+                <color rgba="0 1 0 0.5" />
+            </material>
+        </visual>
+    </link>
+    <!-- radar joint -->
+    <joint name="radar2support" type="fixed">
+        <parent link="radar_support" />
+        <child link="radar" />
+        <origin xyz="${radar_x} ${radar_y} ${radar_z}" />
+    </joint>
+
+</robot>
+```
+
+##### `xacro`转`urdf`
+
+在`xacro`文件当前目录下执行
+
+```bash
+$ rosrun xacro xacro xxx.xacro > xxx.urdf
+```
+
+即可生成对应的`urdf`文件，后续可以通过`urdf`检查工具来检查是否出错。
+
+
+
