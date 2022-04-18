@@ -2263,5 +2263,156 @@ $ rosrun xacro xacro xxx.xacro > xxx.urdf
 
 即可生成对应的`urdf`文件，后续可以通过`urdf`检查工具来检查是否出错。
 
+#### `arbotix`功能包使用
 
+`Arbotix`是一款控制电机，舵机的控制板，同时提供了相应的`ros`功能包`arbotix_python`。使用该功能包可以帮助实现在`rviz`环境下驱动机器人模型运动。
 
+##### `arbotix`安装
+
+从`github`下载源码，使用`catkin_make`命令来编译。
+
+```
+git clone https://github.com/vanadiumlabs/arbotix_ros.git
+```
+
+##### `arbotix`配置
+
+可以参考相关网站[`arbotix`功能包]( http://wiki.ros.org/arbotix_python/diff_controller)
+
+```yaml
+# 该文件是控制器配置,一个机器人模型可能有多个控制器，比如: 底盘、机械臂、夹持器(机械手)....
+# 因此，根 name 是 controller
+controllers: {
+   # 单控制器设置
+   base_controller: {
+       #类型: 差速控制器
+       type: diff_controller,
+       #参考坐标
+       base_frame_id: base_footprint, 
+       #两个轮子之间的间距
+       base_width: 0.2,
+       #控制频率
+       ticks_meter: 2000, 
+       #PID控制参数，使机器人车轮快速达到预期速度
+       Kp: 12, 
+       Kd: 12, 
+       Ki: 0, 
+       Ko: 50, 
+       #加速限制
+       accel_limit: 1.0 
+    }
+}
+```
+
+`launch`文件集成
+
+```xml
+<node name="arbotix" pkg="arbotix_python" type="arbotix_driver" output="screen">
+    <!-- 加载配置文件 -->
+    <rosparam file="$(find my_urdf05_rviz)/config/xxx.yaml" command="load" />
+    <!-- 需要设置是在仿真环境下 -->
+    <param name="sim" value="true" />
+</node>
+```
+
+##### 发布速度控制话题
+
+节点启动后，`arbotix_driver`会订阅`/cmd_vel`话题，需要发布对应话题来控制机器人的运动。
+
+##### `rviz`设置
+
+节点启动后，需要将`rviz`中的参考坐标系改成`odom`，否则机器人不会运动。另外可以添加`Odemetry`以及`TF`等查看项，可以方便观察机器人的运动。
+
+#### `urdf`集成`gazebo`
+
+`urdf`集成`gazebo`的基本步骤如下：
+
++ 创建功能包，导入相关依赖
+
+  ```c++
+  // 需要的依赖项有
+  urdf xacro gazebo_ros gazebo_ros_control gazebo_ros_plugins
+  ```
+
++ 编写`urdf`或者是`xacro`文件
+
+  需要注意在编写`urdf`文件时，有两点与使用`rviz`不同。
+
+  第一，需要在`<link>`标签中添加`<collision>`和`<inertial>`子标签
+
+  第二，需要添加`<gazebo>`标签来重新定义`<link>`的显示颜色
+
++ 启动`gazebo`并显示
+
+  ```xml
+  <!-- 在launch中使用如下节点来启动gazebo -->
+  <!-- start gazebo node using the intergrated simulation environment -->
+  <include file="$(find gazebo_ros)/launch/empty_world.launch" />
+  
+  <!-- show the robot model in gazebo -->
+  <node pkg="gazebo_ros" type="spawn_model" name="myModel" args="-urdf -model boxModel -param robot_description" />
+  ```
+
+##### `collision`标签内容
+
+对于规则结构体的`collision`标签，只需要将`<link>`标签中的`<geometry>`子标签`<origin>`子标签复制一份即可。
+
+##### `inertial`标签内容
+
+需要添加质量，转动惯量，和原点信息。
+
+对于规则体的转动惯量计算如下：
+
+1. 球体，给定质量`m`和半径`r`
+
+$$
+I_{xx} = I_{yy} = I_{zz} = \frac{2}{5}mr^2 \\
+I_{xy} = I_{xz} = I_{yz} = 0
+$$
+
+2. 圆柱体，给定质量`m`，半径`r`和高`h`
+
+$$
+I_{xx} = I_{yy}  = \frac{1}{3}mr^2 + \frac{1}{12}mh^2\\
+I_{zz} = \frac{1}{2}mr^2 \\
+I_{xy} = I_{xz} = I_{yz} = 0
+$$
+
+3. 长方体，给定长`l`，宽`w`，高`h`
+
+$$
+I_{xx} = \frac{1}{12}m(l^2+h^2) \\
+I_{yy} = \frac{1}{12}m(l^2+w^2) \\
+I_{zz} = \frac{1}{12}m(w^2+h^2) \\
+I_{xy} = I_{xz} = I_{yz} = 0
+$$
+
+##### `gazebo`标签
+
+需要添加`gazebo`标签，来设置各个机器人部件在仿真环境中的显示颜色。
+
+```xml
+<gazebo reference="base_link">
+	<material>Gazebo/Red</material>
+</gazebo>
+```
+
+##### `launch`文件启动
+
+```xml
+<launch>
+    <!-- add robot model (urdf file) -->
+    <param name="robot_description" command="$(find xacro)/xacro $(find urdf_and_gazebo)/urdf/robot.xacro" />
+
+    <!-- start gazebo node 
+        using the intergrated simulation environment
+    -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch" />
+
+    <!-- show the robot model in gazebo -->
+    <node pkg="gazebo_ros" type="spawn_model" name="myModel" args="-urdf -model robot_gazebo -param robot_description" />
+    
+</launch>
+```
+
+##### 自定义仿真环境
