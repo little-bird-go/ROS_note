@@ -2416,3 +2416,123 @@ $$
 ```
 
 ##### 自定义仿真环境
+
+在`gazebo`中可以自己创建仿真环境。一种方法是直接添加组件（有官方或第三方的环境模型可以使用），然后保存文件，后缀名为`.world`。另一种方式可以手动绘制仿真环境，灵活度也相对更高。
+
+自定义仿真文件使用
+
+```xml
+<launch>
+    <!-- add robot model (urdf file) -->
+    <param name="robot_description" command="$(find xacro)/xacro $(find urdf_and_gazebo)/urdf/robot.xacro" />
+
+    <!-- start gazebo node 
+        using the intergrated simulation environment
+    -->
+    <include file="$(find gazebo_ros)/launch/empty_world.launch">
+        <arg name="world_name" value="$(find urdf_and_gazebo)/worlds/hello.world"
+
+    <!-- show the robot model in gazebo -->
+    <node pkg="gazebo_ros" type="spawn_model" name="myModel" args="-urdf -model robot_gazebo -param robot_description" />
+    
+</launch>
+```
+
+在启动`empty_world`后，利用`arg`加载自定义仿真环境文件的路径即可显示自定义的环境。
+
+#### `URDF`,`GAZEBO`,`RVIZ`集成使用
+
+##### `ros_control`
+
+`ros_control`是一组为机器人控制而编写的软件包，包括有控制器接口，控制器管理器和传动和硬件接口。是机器人控制的中间件和规范，使用这套规范可以保证程序的兼容性，提高程序设计的效率和灵活性。
+
+`gazebo`中实现了`ros_control`的相关接口，并集成为插件，通过插件的调用即可以实现在`gazebo`中对机器人进行运动控制。
+
+##### 基本实现流程
+
+1. 创建机器人模型
+2. 为机器人模型添加传动装置和控制器
+3. 启动`gazebo`，发布`/cmd_vel`消息来控制机器人运动
+
+##### 控制器示例
+
+```xml
+<robot name="motion_control" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+    <!-- This is the file for motion control -->
+
+    <!-- The transmission set, link the joint to the actuator -->
+    <!-- The template shown as below -->
+    <!-- 
+        <transmission name="simple_trans" >
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="foo_joint" >
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+            </joint>
+            <actuator name="foo_motor" >
+                <mechanicalReduction>50</mechanicalReduction>
+                <hardwareInterface>EffortJointInterface</hardwareInterface>
+            <actuator>
+        </transmission>
+     -->
+
+    <xacro:macro name="joint_trans" params="joint_name" >
+        <transmission name="${joint_name}_trans">
+            <type>transmission_interface/SimpleTransmission</type>
+            <joint name="${joint_name}" >
+                <hardwareInterface>hardwareInterface/VelocityJointInterface</hardwareInterface>
+            </joint>
+
+            <actuator name="${joint_name}_motor" >
+                <hardwareInterface>hardwareInterface/VelocityJointInterface</hardwareInterface>
+                <mechanicalReduction>1</mechanicalReduction>
+            </actuator>
+        </transmission>
+    </xacro:macro>
+
+
+    <!-- The controller set, control the actuator -->
+    <!-- Using the gazebo plugin to make it -->
+    <gazebo>
+        <plugin name="differential_drive_controller" filename="libgazebo_ros_diff_drive.so">
+        <!-- below is params -->
+
+            <rosDebugLevel>Debug</rosDebugLevel>
+            <publishWheelTF>true</publishWheelTF>
+            <robotNamespace>/</robotNamespace>
+            <publishTF>1</publishTF>
+            <publishWheelJointState>true</publishWheelJointState>
+            <alwaysOn>true</alwaysOn>
+            <updateRate>100.0</updateRate>
+            <legacyMode>true</legacyMode>
+            
+            <!-- where to modify -->
+            <leftJoint>left_drive_wheel2base_link</leftJoint>
+            <rightJoint>right_drive_wheel2base_link</rightJoint>
+            <wheelSeparation>${base_link_radius * 2}</wheelSeparation>
+            <wheelDiameter>${drive_wheel_radius * 2}</wheelDiameter>
+            <wheelTorque>30</wheelTorque>
+            <wheelAcceleration>1.8</wheelAcceleration>
+            <robotBaseFrame>footprint</robotBaseFrame>
+            
+
+            <boardcastTF>1</boardcastTF>
+            <commandTopic>cmd_vel</commandTopic>
+            <odometryFrame>odom</odometryFrame>
+            <odometryTopic>odom</odometryTopic>
+
+        </plugin>
+    </gazebo>
+
+
+    <xacro:joint_trans joint_name="left_drive_wheel2base_link" />
+    <xacro:joint_trans joint_name="right_drive_wheel2base_link" />
+
+</robot>
+```
+
+##### 雷达信息仿真
+
+##### 摄像头信息仿真
+
+##### 深度摄像机（点云）信息仿真
