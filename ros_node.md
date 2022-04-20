@@ -2533,6 +2533,146 @@ $$
 
 ##### 雷达信息仿真
 
+使用的是gazebo中雷达传感器插件，按官网上示例编写
+
+```xml
+<robot name="radar_sensor" xmlns:xacro="http://www.ros.org/wiki/xacro" >
+
+    <!-- the plugin for simulating laser data in gazebo -->
+
+    <gazebo reference="radar" >
+        <sensor type="ray" name="radar_sensor">
+            <pose>0 0 0 0 0 0</pose>
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>720</samples>
+                        <resolution>1</resolution>
+                        <min_angle>${-pi/2}</min_angle>
+                        <max_angle>${pi/2}</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.1</min>
+                    <max>30.0</max>
+                    <resolution>0.01</resolution>
+                </range>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0</mean>
+                    <stddev>0.01</stddev>
+                </noise>
+            </ray>
+
+            <plugin name="gazebo_ros_radar_controller" filename="libgazebo_ros_laser.so">
+                <topicName>/scan</topicName>
+                <frameName>radar</frameName>
+            </plugin>
+        </sensor>
+
+    </gazebo>
+
+</robot>
+```
+
 ##### 摄像头信息仿真
 
+使用的是gazebo中摄像头插件，按官网上示例编写
+
+```xml
+<robot name="camera_sensor" xmlns:xacro="http://www.ros.org/wiki/xacro">
+    
+    <!-- The plugin for simulating camera in gazebo -->
+    <gazebo reference="camera">
+        <sensor type="camera" name="camera_sensor">
+            <update_rate>25</update_rate>
+            <camera name="head">
+                <horizontal_fov>1.3962634</horizontal_fov>
+                <image>
+                    <width>1280</width>
+                    <height>720</height>
+                    <format>R8G8B8</format>
+                </image>
+                <clip>
+                    <near>0.02</near>
+                    <far>300</far>
+                </clip>
+                <noise>
+                    <type>gaussian</type>
+                    <mean>0</mean>
+                    <stddev>0.007</stddev>
+                </noise>
+            </camera>
+
+            <plugin name="gazebo_camera_controller" filename="libgazebo_ros_camera.so">
+                <alwaysOn>true</alwaysOn>
+                <update_rate>0.0</update_rate>
+                <cameraName>/camera</cameraName>
+                <imageTopicName>image_raw</imageTopicName>
+                <cameraInfoTopicName>camera_info</cameraInfoTopicName>
+                <frameName>camera</frameName>
+                <hackBaseline>0.07</hackBaseline>
+                <distortionK1>0.0</distortionK1>
+                <distortionK2>0.0</distortionK2>
+                <distortionK3>0.0</distortionK3>
+                <distortionT1>0.0</distortionT1>
+                <distortionT2>0.0</distortionT2>
+            </plugin>
+        </sensor>
+    </gazebo>
+
+</robot>
+```
+
 ##### 深度摄像机（点云）信息仿真
+
+使用的是gazebo中深度相机插件，按官网上示例编写
+
+```xml
+<robot name="my_sensors" xmlns:xacro="http://wiki.ros.org/xacro">
+    <gazebo reference="kinect link名称">  
+      <sensor type="depth" name="camera">
+        <always_on>true</always_on>
+        <update_rate>20.0</update_rate>
+        <camera>
+          <horizontal_fov>${60.0*PI/180.0}</horizontal_fov>
+          <image>
+            <format>R8G8B8</format>
+            <width>640</width>
+            <height>480</height>
+          </image>
+          <clip>
+            <near>0.05</near>
+            <far>8.0</far>
+          </clip>
+        </camera>
+        <plugin name="kinect_camera_controller" filename="libgazebo_ros_openni_kinect.so">
+          <cameraName>camera</cameraName>
+          <alwaysOn>true</alwaysOn>
+          <updateRate>10</updateRate>
+          <imageTopicName>rgb/image_raw</imageTopicName>
+          <depthImageTopicName>depth/image_raw</depthImageTopicName>
+          <pointCloudTopicName>depth/points</pointCloudTopicName>
+          <cameraInfoTopicName>rgb/camera_info</cameraInfoTopicName>
+          <depthImageCameraInfoTopicName>depth/camera_info</depthImageCameraInfoTopicName>
+          <frameName>kinect link名称</frameName>
+          <baseline>0.1</baseline>
+          <distortion_k1>0.0</distortion_k1>
+          <distortion_k2>0.0</distortion_k2>
+          <distortion_k3>0.0</distortion_k3>
+          <distortion_t1>0.0</distortion_t1>
+          <distortion_t2>0.0</distortion_t2>
+          <pointCloudCutoff>0.4</pointCloudCutoff>
+        </plugin>
+      </sensor>
+    </gazebo>
+
+</robot>
+```
+
+##### 参考网站
+
+[gazebo官网](http://gazebosim.org/tutorials?cat=connect_ros)
+
